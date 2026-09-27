@@ -1,0 +1,43 @@
+name: Radar Vang 24-7
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: radar-vang
+  cancel-in-progress: false
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Chay radar
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODES: 'week,day'
+          LOT: '0.02'
+          PARTIAL: '0.01'
+          MAX_RISK_USD: '80'
+          START_BALANCE: '1000'
+        run: node radar-engine.mjs
+      - name: Luu nhat ky tin hieu
+        run: |
+          git config user.name "radar-vang-bot"
+          git config user.email "radar-vang-bot@users.noreply.github.com"
+          git add data/signals.json
+          if git diff --staged --quiet; then echo "Khong co thay doi"; else
+            git commit -m "Radar: cap nhat nhat ky"
+            git pull --rebase --autostash || true
+            git push
+          fi
