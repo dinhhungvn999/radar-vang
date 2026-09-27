@@ -1,0 +1,104 @@
+{
+ "version": 2,
+ "signals": [],
+ "startedAt": 1790486714423,
+ "config": {
+  "modes": [
+   "week",
+   "day"
+  ],
+  "lot": 0.02,
+  "partial": 0.01,
+  "maxRiskUSD": 80,
+  "startBalance": 1000,
+  "rr": 2,
+  "maxHoldH": 24,
+  "week": {
+   "slAtrH1": 1.5
+  },
+  "day": {
+   "slAtrH1": 1,
+   "rsiLo": 15,
+   "rsiHi": 85
+  }
+ },
+ "cal": {
+  "at": 1790486717243,
+  "items": [
+   {
+    "t": 1790771400000,
+    "title": "Core PCE Price Index m/m"
+   },
+   {
+    "t": 1790771400000,
+    "title": "Final GDP q/q"
+   },
+   {
+    "t": 1790944200000,
+    "title": "Average Hourly Earnings m/m"
+   },
+   {
+    "t": 1790944200000,
+    "title": "Non-Farm Employment Change"
+   },
+   {
+    "t": 1790944200000,
+    "title": "Unemployment Rate"
+   }
+  ]
+ },
+ "lastWeekly": 1790486721451,
+ "welcomed": true,
+ "stats": {
+  "n": 0,
+  "win": 0,
+  "loss": 0,
+  "flat": 0,
+  "tp2": 0,
+  "be": 0,
+  "sl": 0,
+  "time": 0,
+  "winRate": 0,
+  "usd": 0,
+  "dd": 0,
+  "maxStreak": 0,
+  "balance": 1000
+ },
+ "statsWeek": {
+  "n": 0,
+  "win": 0,
+  "loss": 0,
+  "flat": 0,
+  "tp2": 0,
+  "be": 0,
+  "sl": 0,
+  "time": 0,
+  "winRate": 0,
+  "usd": 0,
+  "dd": 0,
+  "maxStreak": 0,
+  "balance": 1000
+ },
+ "statsDay": {
+  "n": 0,
+  "win": 0,
+  "loss": 0,
+  "flat": 0,
+  "tp2": 0,
+  "be": 0,
+  "sl": 0,
+  "time": 0,
+  "winRate": 0,
+  "usd": 0,
+  "dd": 0,
+  "maxStreak": 0,
+  "balance": 1000
+ },
+ "last": {
+  "t": 1790481600,
+  "price": 4276.09,
+  "st4": 0
+ },
+ "aliveDay": "2026-09-27",
+ "updatedAt": 1790486721960
+}
