@@ -22,8 +22,8 @@ const CFG = {
   WEEKLY_REPORT_DOW: 0, WEEKLY_REPORT_HOUR_VN: 9,
 };
 const MODE = {
-  week: { tag: 'TUẦN', slm: 1.5, barSec: 3600, fresh: 2 },
-  day:  { tag: 'NGÀY', slm: 1.0, barSec: 900,  fresh: 3, rsiLo: 15, rsiHi: 85 },
+  week: { tag: 'TUẦN', slm: 1.5, barSec: 3600, fresh: 3 },   // nhận tín hiệu trong 3 nến H1 gần nhất (GitHub có thể chạy trễ)
+  day:  { tag: 'NGÀY', slm: 1.0, barSec: 900,  fresh: 8, rsiLo: 15, rsiHi: 85 },   // 8 nến M15 = 2 giờ
 };
 const STATE_FILE = 'data/signals.json';
 const TG_TOKEN = process.env.TELEGRAM_TOKEN, TG_CHAT = process.env.TELEGRAM_CHAT_ID;
@@ -185,7 +185,11 @@ function msgNew(s, cal, spot) {
     `⌛ Hết hạn: ${vn((s.entryT + CFG.MAX_HOLD_H * 3600) * 1000)}\n\n${why}\n`;
   if (s.skipped) m += `\n⚠️ <b>Rủi ro ${usd(-s.riskUSD)} vượt giới hạn $${CFG.MAX_RISK_USD}</b> — khuyên BỎ QUA (radar vẫn theo dõi để thống kê).`;
   if (lockEv) m += `\n⚠️ Tin mạnh <b>${evVi(lockEv.title)}</b> lúc ${vn(lockEv.t)} — cân nhắc chờ sau tin hoặc giảm khối lượng.`;
-  if (s.lateMin > 20) m += `\nℹ️ Phát hiện trễ ${s.lateMin} phút — kiểm tra giá hiện tại trước khi vào.`;
+  if (s.lateMin > 20) {
+    const moved = spot ? (spot.p - (s.entry + (s.basis || 0))) * s.dir : null;
+    m += `\nℹ️ Phát hiện trễ ${s.lateMin} phút` + (moved != null ? ` — giá đã đi ${moved >= 0 ? 'thuận' : 'ngược'} ${fmt(Math.abs(moved))}$ so với điểm vào.` : '.');
+    if (moved != null && moved > 0.5 * s.atr) m += ` Giá đã chạy xa: chỉ vào nếu giá hồi lại gần <b>${px(s, s.entry)}</b>, hoặc bỏ qua.`;
+  }
   return m + `\n\n<i>Công cụ hỗ trợ, không phải lời khuyên đầu tư.</i>`;
 }
 function msgEvent(ev, all) {
@@ -237,7 +241,17 @@ async function main() {
   for (const f of found) {
     const id = `${f.mode}_${f.barT}_${f.dir}`;
     if (state.signals.some(s => s.id === id)) continue;
-    if (state.signals.some(s => s.mode === f.mode && (s.status !== 'closed' || (s.exitAt || 0) > f.entryT * 1000))) { console.log('Đang có lệnh mở cùng loại, bỏ qua:', id); continue; }
+    const blocker = state.signals.find(s => s.mode === f.mode && (s.status !== 'closed' || (s.exitAt || 0) > f.entryT * 1000));
+    if (blocker) {
+      console.log('Đang có lệnh mở cùng loại, bỏ qua:', id);
+      state.skippedIds = state.skippedIds || [];
+      // chỉ báo 1 lần cho mỗi lệnh đang mở (tránh nhắn lặp), và chỉ khi tín hiệu mới cách lệnh đó ≥ 1 giờ
+      if (!state.skippedIds.includes(blocker.id) && f.barT >= blocker.entryT + 3600) {
+        state.skippedIds.push(blocker.id); state.skippedIds = state.skippedIds.slice(-200); dirty = true;
+        await tg(`⏸ <b>${f.dir > 0 ? 'MUA' : 'BÁN'} XAU/USD [${MODE[f.mode].tag}] — tín hiệu mới bị BỎ QUA</b>\nNến ${f.mode === 'week' ? 'H1' : 'M15'} đóng ${vn(f.entryT * 1000)} · giá ${fmt(f.entry + basis)}\nLý do: lệnh #${blocker.no} ${tagOf(blocker)} ${blocker.dir > 0 ? 'MUA' : 'BÁN'} (vào ${px(blocker, blocker.entry)}) vẫn đang mở — mỗi loại chỉ giữ 1 lệnh, đúng như khi kiểm chứng. (Chỉ báo 1 lần cho lệnh này.)`);
+      }
+      continue;
+    }
     const r = f.atr * MODE[f.mode].slm, riskUSD = +(r * CFG.LOT * OZ).toFixed(2);
     const s = {
       id, no: (state.signals.at(-1)?.no || 0) + 1, mode: f.mode, dir: f.dir, barT: f.barT, entryT: f.entryT, createdAt: Date.now(),
