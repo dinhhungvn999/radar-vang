@@ -79,7 +79,9 @@
    "lot": 0.02,
    "partial": 0.01,
    "skipped": false,
-   "status": "open"
+   "status": "tp1",
+   "tp1Hit": true,
+   "tp1At": 1790614800000
   }
  ],
  "startedAt": 1790486714423,
@@ -176,10 +178,10 @@
   "balance": 1064.97
  },
  "last": {
-  "t": 1790607600,
-  "price": 4144.1,
+  "t": 1790611200,
+  "price": 4130.9,
   "st4": -1
  },
  "aliveDay": "2026-09-28",
- "updatedAt": 1790613033565
+ "updatedAt": 1790614839522
 }
