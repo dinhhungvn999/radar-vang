@@ -13,6 +13,11 @@ const CFG = {
   LOT: +(process.env.LOT || 0.02),
   PARTIAL: +(process.env.PARTIAL || 0.01),
   BE_AFTER_TP1: true,
+  // Giống EA: lãi BE_USD giá → dời SL về điểm vào, sau đó SL bám cách giá tốt nhất TRAIL_USD (áp dụng cho các loại trong BE_MODES)
+  BE_USD: +(process.env.BE_USD ?? 5),
+  TRAIL_USD: +(process.env.TRAIL_USD ?? 10),
+  BE_MODES: (process.env.BE_MODES || 'day').split(',').map(s => s.trim()).filter(Boolean),
+  RULES_V: 2,
   MAX_RISK_USD: +(process.env.MAX_RISK_USD || 80),
   START_BALANCE: +(process.env.START_BALANCE || 1000),
   SPREAD: 0.35,
@@ -127,29 +132,46 @@ function track(sig, bars, events) {
   const list = bars.filter(k => k.t >= sig.entryT && k.t < sig.entryT + CFG.MAX_HOLD_H * 3600);
   const d = sig.dir, rem = +(sig.lot - sig.partial).toFixed(2);
   const pnl = (price, lots) => (price - sig.entry) * d * lots * OZ;
-  let tp1 = false, out = null, exitP = null, exitT = null, tp1T = null, v = 0;
-  for (const k of list) {
+  const beOn = CFG.BE_MODES.includes(sig.mode) && CFG.BE_USD > 0;
+  let tp1 = false, out = null, exitP = null, exitT = null, tp1T = null, v = 0, lots = sig.lot;
+  let sl = sig.sl, best = sig.entry, moved = false, movedT = null;
+  // Đi theo đường giá trong từng nến (mở → đáy/đỉnh → đóng), giống cách EA xử lý từng tick
+  outer: for (const k of list) {
     const closed = k.t + bs <= now;
-    if (!tp1) {
-      if (d > 0 ? k.l <= sig.sl : k.h >= sig.sl) { out = 'sl'; exitP = sig.sl; exitT = k.t; v = pnl(sig.sl, sig.lot); break; }
-      if (d > 0 ? k.h >= sig.tp1 : k.l <= sig.tp1) {
-        tp1 = true; tp1T = k.t; v = pnl(sig.tp1, sig.partial);
-        if (d > 0 ? k.h >= sig.tp2 : k.l <= sig.tp2) { out = 'tp2'; exitP = sig.tp2; exitT = k.t; v += pnl(sig.tp2, rem); break; }
+    const path = k.c >= k.o ? [k.o, k.l, k.h, k.c] : [k.o, k.h, k.l, k.c];
+    for (let q = 1; q < 4; q++) {
+      const a = path[q - 1], b = path[q]; if (a === b) continue;
+      if ((b - a) * d < 0) {                       // giá đi ngược → kiểm tra SL (gốc, hoà vốn hoặc trailing)
+        if ((b - sl) * d <= 0) {
+          exitP = (a - sl) * d <= 0 ? a : sl; exitT = k.t; v += pnl(exitP, lots);
+          out = (exitP - sig.entry) * d < -0.01 ? 'sl' : (exitP - sig.entry) * d > 0.5 ? 'trail' : 'be';
+          break outer;
+        }
+      } else {                                       // giá đi thuận → TP1, TP2, dời SL
+        if (!tp1 && (b - sig.tp1) * d >= 0) {
+          tp1 = true; tp1T = k.t; v += pnl(sig.tp1, sig.partial); lots = rem;
+          if (CFG.BE_AFTER_TP1 && (sl - sig.entry) * d < 0) sl = sig.entry;
+        }
+        if ((b - sig.tp2) * d >= 0) { out = 'tp2'; exitP = sig.tp2; exitT = k.t; v += pnl(sig.tp2, lots); break outer; }
+        best = d > 0 ? Math.max(best, b) : Math.min(best, b);
+        if (beOn) {
+          if (!moved && (best - sig.entry) * d >= CFG.BE_USD) { if ((sl - sig.entry) * d < 0) sl = sig.entry; moved = true; movedT = k.t; }
+          if (moved && CFG.TRAIL_USD > 0) { const ts = best - d * CFG.TRAIL_USD; if ((ts - sl) * d > 0) sl = ts; }
+        }
       }
-    } else {
-      const be = CFG.BE_AFTER_TP1 ? sig.entry : sig.sl;
-      if (d > 0 ? k.l <= be : k.h >= be) { out = 'be'; exitP = be; exitT = k.t; v += pnl(be, rem); break; }
-      if (d > 0 ? k.h >= sig.tp2 : k.l <= sig.tp2) { out = 'tp2'; exitP = sig.tp2; exitT = k.t; v += pnl(sig.tp2, rem); break; }
     }
     if (!closed) break;
   }
   if (!out && now >= sig.entryT + CFG.MAX_HOLD_H * 3600 && list.length) {
-    const last = list[list.length - 1]; out = 'time'; exitP = last.c; exitT = last.t; v += pnl(exitP, tp1 ? rem : sig.lot);
+    const last = list[list.length - 1]; out = 'time'; exitP = last.c; exitT = last.t; v += pnl(exitP, lots);
   }
+  sig.slNow = +sl.toFixed(2); sig.rulesV = CFG.RULES_V;
+  if (moved && !sig.beMoved) { sig.beMoved = true; sig.beAt = (movedT + bs) * 1000; if (!out) events.push({ type: 'bemove', sig }); }
   if (tp1 && !sig.tp1Hit) { sig.tp1Hit = true; sig.tp1At = (tp1T + bs) * 1000; events.push({ type: 'tp1', sig }); }
   if (out) {
     sig.status = 'closed'; sig.outcome = out; sig.exitPrice = exitP; sig.exitAt = Math.min(Date.now(), (exitT + bs) * 1000);
-    sig.usd = +(v - CFG.SPREAD * sig.lot * OZ).toFixed(2); sig.R = +(sig.usd / sig.riskUSD).toFixed(2);
+    // hoà vốn thuần (chưa TP1) coi như 0$, giống EA: SL đặt đúng giá vào nên không mất spread thêm
+    sig.usd = +(out === 'be' && !tp1 ? 0 : v - CFG.SPREAD * sig.lot * OZ).toFixed(2); sig.R = +(sig.usd / sig.riskUSD).toFixed(2);
     events.push({ type: 'close', sig });
   } else if (tp1) sig.status = 'tp1';
 }
@@ -160,7 +182,7 @@ function stats(signals, mode) {
   const n = list.length, win = list.filter(s => s.usd > 0).length, loss = list.filter(s => s.usd < 0).length, by = o => list.filter(s => s.outcome === o).length;
   let peak = 0, cum = 0, dd = 0, streak = 0, maxStreak = 0;
   for (const s of list) { cum += s.usd; peak = Math.max(peak, cum); dd = Math.max(dd, peak - cum); if (s.usd < 0) { streak++; maxStreak = Math.max(maxStreak, streak); } else streak = 0; }
-  return { n, win, loss, flat: n - win - loss, tp2: by('tp2'), be: by('be'), sl: by('sl'), time: by('time'), winRate: n ? win / n * 100 : 0, usd: +cum.toFixed(2), dd: +dd.toFixed(2), maxStreak, balance: +(CFG.START_BALANCE + cum).toFixed(2) };
+  return { n, win, loss, flat: n - win - loss, tp2: by('tp2'), be: by('be'), trail: by('trail'), sl: by('sl'), time: by('time'), winRate: n ? win / n * 100 : 0, usd: +cum.toFixed(2), dd: +dd.toFixed(2), maxStreak, balance: +(CFG.START_BALANCE + cum).toFixed(2) };
 }
 
 // ---------- Telegram ----------
@@ -182,6 +204,7 @@ function msgNew(s, cal, spot) {
     `🛑 SL: <b>${px(s, s.sl)}</b>  →  ${usd(-s.riskUSD)} (${s.lot} lot)\n` +
     `🎯 TP1: <b>${px(s, s.tp1)}</b>  →  chốt ${s.partial} lot ${usd(s.riskUSD * s.partial / s.lot)}, dời SL về điểm vào\n` +
     `🏁 TP2: <b>${px(s, s.tp2)}</b>  →  ${rem} lot còn lại ${usd(2 * s.riskUSD * rem / s.lot)}\n` +
+    (CFG.BE_MODES.includes(s.mode) && CFG.BE_USD > 0 ? `🛡 Lãi ${fmt(CFG.BE_USD)} giá → dời SL về điểm vào, sau đó SL bám cách giá ${fmt(CFG.TRAIL_USD)}\n` : '') +
     `⌛ Hết hạn: ${vn((s.entryT + CFG.MAX_HOLD_H * 3600) * 1000)}\n\n${why}\n`;
   if (s.skipped) m += `\n⚠️ <b>Rủi ro ${usd(-s.riskUSD)} vượt giới hạn $${CFG.MAX_RISK_USD}</b> — khuyên BỎ QUA (radar vẫn theo dõi để thống kê).`;
   if (lockEv) m += `\n⚠️ Tin mạnh <b>${evVi(lockEv.title)}</b> lúc ${vn(lockEv.t)} — cân nhắc chờ sau tin hoặc giảm khối lượng.`;
@@ -194,10 +217,11 @@ function msgNew(s, cal, spot) {
 }
 function msgEvent(ev, all) {
   const s = ev.sig, st = stats(all), sm = stats(all, s.mode);
+  if (ev.type === 'bemove') return `🛡 <b>#${s.no} ${tagOf(s)} đã lãi ${fmt(CFG.BE_USD)} giá</b> — dời SL về điểm vào <b>${px(s, s.entry)}</b>, lệnh không còn rủi ro. Sau đó SL bám cách giá ${fmt(CFG.TRAIL_USD)}.`;
   if (ev.type === 'tp1') return `🎯 <b>#${s.no} ${tagOf(s)} chạm TP1</b> ${px(s, s.tp1)}\nChốt ${s.partial} lot: ${usd(s.riskUSD * s.partial / s.lot)}\n👉 Dời SL phần còn lại về điểm vào <b>${px(s, s.entry)}</b>, chờ TP2 ${px(s, s.tp2)}.`;
-  const icon = { tp2: '🏆', be: '🤝', sl: '❌', time: '⌛' }[s.outcome];
-  const name = { tp2: 'CHẠM TP2', be: 'HOÀ VỐN phần còn lại (đã lời TP1)', sl: 'CHẠM CẮT LỖ', time: 'HẾT 24 GIỜ, đóng theo giá' }[s.outcome];
-  return `${icon} <b>#${s.no} ${tagOf(s)} ${s.dir > 0 ? 'MUA' : 'BÁN'} — ${name}</b>\nĐóng ở ${px(s, s.exitPrice)} · Kết quả: <b>${usd(s.usd)}</b> (${s.R >= 0 ? '+' : ''}${s.R}R)${s.skipped ? ' · <i>lệnh khuyên bỏ qua, không tính vào tài khoản</i>' : ''}\n\n` +
+  const icon = { tp2: '🏆', be: '🤝', trail: '🔒', sl: '❌', time: '⌛' }[s.outcome];
+  const name = { tp2: 'CHẠM TP2', be: s.tp1Hit ? 'HOÀ VỐN phần còn lại (đã lời TP1)' : 'HOÀ VỐN (SL đã dời về điểm vào)', trail: 'CHỐT LÃI bằng SL bám giá', sl: 'CHẠM CẮT LỖ', time: 'HẾT 24 GIỜ, đóng theo giá' }[s.outcome];
+  return `${ev.corrected ? '✏️ <i>Tính lại theo quy tắc mới (dời SL về điểm vào khi lãi ' + fmt(CFG.BE_USD) + ' giá)</i>\n' : ''}${icon} <b>#${s.no} ${tagOf(s)} ${s.dir > 0 ? 'MUA' : 'BÁN'} — ${name}</b>\nĐóng ở ${px(s, s.exitPrice)} · Kết quả: <b>${usd(s.usd)}</b> (${s.R >= 0 ? '+' : ''}${s.R}R)${s.skipped ? ' · <i>lệnh khuyên bỏ qua, không tính vào tài khoản</i>' : ''}\n\n` +
     `📊 ${tagOf(s)}: ${sm.n} lệnh · thắng ${sm.win} · thua ${sm.loss} · hoà ${sm.flat} (${fmt(sm.winRate, 0)}% thắng) · ${usd(sm.usd)}\n💰 Tài khoản demo (cả 2 loại): <b>$${fmt(st.balance)}</b> (${usd(st.usd)})`;
 }
 function msgWeekly(all) {
@@ -220,7 +244,7 @@ async function main() {
   fs.mkdirSync('data', { recursive: true });
   const state = fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) : { version: 2, signals: [], startedAt: Date.now() };
   state.signals.forEach(s => { s.mode ||= 'week'; s.lot ??= CFG.LOT; s.partial ??= CFG.PARTIAL; });
-  state.config = { modes: CFG.MODES, lot: CFG.LOT, partial: CFG.PARTIAL, maxRiskUSD: CFG.MAX_RISK_USD, startBalance: CFG.START_BALANCE, rr: CFG.RR, maxHoldH: CFG.MAX_HOLD_H, week: { slAtrH1: MODE.week.slm }, day: { slAtrH1: MODE.day.slm, rsiLo: MODE.day.rsiLo, rsiHi: MODE.day.rsiHi } };
+  state.config = { modes: CFG.MODES, beUSD: CFG.BE_USD, trailUSD: CFG.TRAIL_USD, beModes: CFG.BE_MODES, lot: CFG.LOT, partial: CFG.PARTIAL, maxRiskUSD: CFG.MAX_RISK_USD, startBalance: CFG.START_BALANCE, rr: CFG.RR, maxHoldH: CFG.MAX_HOLD_H, week: { slAtrH1: MODE.week.slm }, day: { slAtrH1: MODE.day.slm, rsiLo: MODE.day.rsiLo, rsiHi: MODE.day.rsiHi } };
   const before = JSON.stringify(state.signals);
   const [H, M15, spot] = await Promise.all([loadCandles(3600, 2400), loadCandles(900, 600), loadSpot()]);
   if (H.length < 1200 || M15.length < 200) throw new Error(`Thiếu dữ liệu nến: H1=${H.length} M15=${M15.length}`);
@@ -230,6 +254,19 @@ async function main() {
 
   // 1) cập nhật lệnh đang mở
   const events = [];
+  // Lệnh cũ bị ghi "chạm SL" theo quy tắc trước: nếu còn đủ dữ liệu nến thì tính lại theo quy tắc dời SL mới
+  for (const s of state.signals) {
+    if ((s.rulesV || 1) >= CFG.RULES_V || !CFG.BE_MODES.includes(s.mode)) continue;
+    const bars = s.mode === 'day' ? M15 : H;
+    if (s.status === 'closed' && s.outcome === 'sl' && bars.length && bars[0].t <= s.entryT) {
+      const old = { ...s };
+      delete s.outcome; delete s.exitPrice; delete s.exitAt; delete s.usd; delete s.R; s.status = s.tp1Hit ? 'tp1' : 'open';
+      const tmp = []; track(s, bars, tmp);
+      if (s.status === 'closed' && s.outcome !== 'sl') { const ev = tmp.find(e => e.type === 'close'); if (ev) { ev.corrected = true; events.push(ev); } console.log('Tính lại lệnh', s.id, old.outcome, '→', s.outcome); }
+      else if (s.status !== 'closed') Object.assign(s, old);   // an toàn: giữ nguyên nếu không tính lại được
+    }
+    s.rulesV = CFG.RULES_V;
+  }
   for (const s of state.signals) track(s, s.mode === 'day' ? M15 : H, events);
 
   for (const ev of events) await tg(msgEvent(ev, state.signals));

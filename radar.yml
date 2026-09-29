@@ -1,0 +1,46 @@
+# Radar Vàng chạy 24/7: mỗi 15 phút GitHub tự chạy bộ máy, lưu nhật ký và gửi Telegram
+name: Radar Vang 24-7
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # mỗi 15 phút (giờ UTC). GitHub đôi khi chạy trễ vài phút.
+  workflow_dispatch:          # nút "Run workflow" để chạy thử bằng tay
+
+permissions:
+  contents: write            # cho phép lưu file data/signals.json
+
+concurrency:
+  group: radar-vang
+  cancel-in-progress: false
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Chạy radar
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODES: 'week,day'
+          LOT: '0.02'
+          PARTIAL: '0.01'
+          MAX_RISK_USD: '80'
+          START_BALANCE: '1000'
+          BE_USD: '5'        # lãi 5 giá → dời SL về điểm vào (lệnh NGÀY)
+          TRAIL_USD: '10'    # sau đó SL bám cách giá 10
+        run: node radar-engine.mjs
+      - name: Lưu nhật ký tín hiệu
+        run: |
+          git config user.name "radar-vang-bot"
+          git config user.email "radar-vang-bot@users.noreply.github.com"
+          git add data/signals.json
+          if git diff --staged --quiet; then echo "Không có thay đổi"; else
+            git commit -m "Radar: cập nhật nhật ký $(date -u +'%Y-%m-%d %H:%M')"
+            git pull --rebase --autostash || true
+            git push
+          fi
