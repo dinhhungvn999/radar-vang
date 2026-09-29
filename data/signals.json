@@ -28,7 +28,8 @@
    "exitPrice": 4150.690253868572,
    "exitAt": 1790602200000,
    "usd": 30.95,
-   "R": 1.47
+   "R": 1.47,
+   "rulesV": 2
   },
   {
    "id": "day_1790603100_-1",
@@ -57,7 +58,8 @@
    "exitPrice": 4143.744521449388,
    "exitAt": 1790606122491,
    "usd": 34.02,
-   "R": 1.47
+   "R": 1.47,
+   "rulesV": 2
   },
   {
    "id": "day_1790612100_-1",
@@ -86,7 +88,8 @@
    "exitPrice": 4153.28,
    "exitAt": 1790615700000,
    "usd": 13.62,
-   "R": 0.48
+   "R": 0.48,
+   "rulesV": 2
   },
   {
    "id": "day_1790633700_-1",
@@ -109,17 +112,26 @@
    "partial": 0.01,
    "skipped": false,
    "status": "closed",
-   "outcome": "sl",
-   "exitPrice": 4149.429488201979,
-   "exitAt": 1790661322112,
-   "usd": -29.02,
-   "R": -1.02
+   "slNow": 4135.27,
+   "rulesV": 2,
+   "beMoved": true,
+   "beAt": 1790641800000,
+   "outcome": "be",
+   "exitPrice": 4135.27,
+   "exitAt": 1790642700000,
+   "usd": 0,
+   "R": 0
   }
  ],
  "startedAt": 1790486714423,
  "config": {
   "modes": [
    "week",
+   "day"
+  ],
+  "beUSD": 5,
+  "trailUSD": 10,
+  "beModes": [
    "day"
   ],
   "lot": 0.02,
@@ -167,17 +179,18 @@
  "stats": {
   "n": 4,
   "win": 3,
-  "loss": 1,
-  "flat": 0,
+  "loss": 0,
+  "flat": 1,
   "tp2": 2,
-  "be": 1,
-  "sl": 1,
+  "be": 2,
+  "trail": 0,
+  "sl": 0,
   "time": 0,
   "winRate": 75,
-  "usd": 49.57,
-  "dd": 29.02,
-  "maxStreak": 1,
-  "balance": 1049.57
+  "usd": 78.59,
+  "dd": 0,
+  "maxStreak": 0,
+  "balance": 1078.59
  },
  "statsWeek": {
   "n": 0,
@@ -186,6 +199,7 @@
   "flat": 0,
   "tp2": 0,
   "be": 0,
+  "trail": 0,
   "sl": 0,
   "time": 0,
   "winRate": 0,
@@ -197,25 +211,26 @@
  "statsDay": {
   "n": 4,
   "win": 3,
-  "loss": 1,
-  "flat": 0,
+  "loss": 0,
+  "flat": 1,
   "tp2": 2,
-  "be": 1,
-  "sl": 1,
+  "be": 2,
+  "trail": 0,
+  "sl": 0,
   "time": 0,
   "winRate": 75,
-  "usd": 49.57,
-  "dd": 29.02,
-  "maxStreak": 1,
-  "balance": 1049.57
+  "usd": 78.59,
+  "dd": 0,
+  "maxStreak": 0,
+  "balance": 1078.59
  },
  "last": {
-  "t": 1790654400,
-  "price": 4143.2,
+  "t": 1790661600,
+  "price": 4141.9,
   "st4": -1
  },
  "aliveDay": "2026-09-29",
- "updatedAt": 1790661322692,
+ "updatedAt": 1790668525429,
  "skippedIds": [
   "day_1790633700_-1"
  ]
