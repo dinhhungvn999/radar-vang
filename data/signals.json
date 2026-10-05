@@ -150,27 +150,11 @@
   }
  },
  "cal": {
-  "at": 1791072036717,
+  "at": 1791158434685,
   "items": [
    {
-    "t": 1790771400000,
-    "title": "Core PCE Price Index m/m"
-   },
-   {
-    "t": 1790771400000,
-    "title": "Final GDP q/q"
-   },
-   {
-    "t": 1790944200000,
-    "title": "Average Hourly Earnings m/m"
-   },
-   {
-    "t": 1790944200000,
-    "title": "Non-Farm Employment Change"
-   },
-   {
-    "t": 1790944200000,
-    "title": "Unemployment Rate"
+    "t": 1791396000000,
+    "title": "FOMC Meeting Minutes"
    }
   ]
  },
@@ -225,12 +209,12 @@
   "balance": 1078.59
  },
  "last": {
-  "t": 1791075600,
-  "price": 4144.89,
-  "st4": -1
+  "t": 1791154800,
+  "price": 4143.7,
+  "st4": 0
  },
- "aliveDay": "2026-10-04",
- "updatedAt": 1791079242678,
+ "aliveDay": "2026-10-05",
+ "updatedAt": 1791158434698,
  "skippedIds": [
   "day_1790633700_-1"
  ]
