@@ -267,7 +267,7 @@
    "partial": 0.01,
    "skipped": false,
    "status": "open",
-   "slNow": 4129.09,
+   "slNow": 4128.84,
    "rulesV": 2,
    "beMoved": true,
    "beAt": 1791463500000
@@ -360,11 +360,11 @@
  },
  "last": {
   "t": 1791457200,
-  "price": 4119.1,
+  "price": 4118.8,
   "st4": -1
  },
  "aliveDay": "2026-10-08",
- "updatedAt": 1791463828941,
+ "updatedAt": 1791464125381,
  "skippedIds": [
   "day_1790633700_-1"
  ]
