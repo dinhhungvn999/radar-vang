@@ -296,9 +296,14 @@
    "lot": 0.02,
    "partial": 0.01,
    "skipped": false,
-   "status": "open",
+   "status": "closed",
    "slNow": 4133.36,
-   "rulesV": 2
+   "rulesV": 2,
+   "outcome": "sl",
+   "exitPrice": 4133.357124630457,
+   "exitAt": 1791479427679,
+   "usd": -38.97,
+   "R": -1.02
   },
   {
    "id": "day_1791477000_-1",
@@ -363,36 +368,36 @@
  "lastWeekly": 1791079242678,
  "welcomed": true,
  "stats": {
-  "n": 9,
+  "n": 10,
   "win": 3,
-  "loss": 0,
+  "loss": 1,
   "flat": 6,
   "tp2": 2,
   "be": 7,
   "trail": 0,
-  "sl": 0,
+  "sl": 1,
   "time": 0,
-  "winRate": 33.33333333333333,
-  "usd": 78.59,
-  "dd": 0,
-  "maxStreak": 0,
-  "balance": 1078.59
+  "winRate": 30,
+  "usd": 39.62,
+  "dd": 38.97,
+  "maxStreak": 1,
+  "balance": 1039.62
  },
  "statsWeek": {
-  "n": 0,
+  "n": 1,
   "win": 0,
-  "loss": 0,
+  "loss": 1,
   "flat": 0,
   "tp2": 0,
   "be": 0,
   "trail": 0,
-  "sl": 0,
+  "sl": 1,
   "time": 0,
   "winRate": 0,
-  "usd": 0,
-  "dd": 0,
-  "maxStreak": 0,
-  "balance": 1000
+  "usd": -38.97,
+  "dd": 38.97,
+  "maxStreak": 1,
+  "balance": 961.03
  },
  "statsDay": {
   "n": 9,
@@ -411,12 +416,12 @@
   "balance": 1078.59
  },
  "last": {
-  "t": 1791471600,
-  "price": 4120.4,
+  "t": 1791475200,
+  "price": 4132.3,
   "st4": -1
  },
  "aliveDay": "2026-10-08",
- "updatedAt": 1791477926435,
+ "updatedAt": 1791479428186,
  "skippedIds": [
   "day_1790633700_-1"
  ]
